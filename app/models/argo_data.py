@@ -6,7 +6,7 @@ from ..core.database import Base
 class ArgoFloat(Base):
     __tablename__ = "argo_floats"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     platform_number: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     wmo_id: Mapped[str | None] = mapped_column(String(20), index=True, nullable=True)
     deployment_date: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
@@ -22,7 +22,7 @@ class ArgoFloat(Base):
 class ArgoProfile(Base):
     __tablename__ = "argo_profiles"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     platform_number: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     cycle_number: Mapped[int] = mapped_column(Integer, nullable=False)
     profile_date: Mapped[DateTime | None] = mapped_column(DateTime, index=True, nullable=True)
@@ -39,7 +39,7 @@ class ArgoProfile(Base):
 class ArgoMeasurement(Base):
     __tablename__ = "argo_measurements"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     profile_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     pressure: Mapped[float | None] = mapped_column(Float, nullable=True)
     pressure_qc: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -55,7 +55,7 @@ class ArgoMeasurement(Base):
 class QueryHistory(Base):
     __tablename__ = "query_history"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id: Mapped[str | None] = mapped_column(String(100), index=True, nullable=True)
     user_query: Mapped[str] = mapped_column(Text, nullable=False)
     generated_sql: Mapped[str | None] = mapped_column(Text, nullable=True)

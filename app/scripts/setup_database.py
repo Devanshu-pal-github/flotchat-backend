@@ -9,6 +9,11 @@ async def main():
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Align sequences with current max(id) after manual inserts or seeds
+        try:
+            await conn.execute(text("SELECT setval(pg_get_serial_sequence('argo_profiles','id'), COALESCE((SELECT MAX(id) FROM argo_profiles), 0) + 1, false)"))
+        except Exception:
+            pass
         # Simple sanity check query depending on dialect
         try:
             await conn.execute(text("SELECT 1"))

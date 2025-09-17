@@ -1,6 +1,8 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field, AnyHttpUrl
 from typing import List
+from pathlib import Path
+import os
 
 
 def parse_origins(origins: str | None) -> List[str] | str:
@@ -15,6 +17,10 @@ def parse_origins(origins: str | None) -> List[str] | str:
     if val == "*" or not val:
         return "*"
     return [o.strip() for o in val.split(",") if o.strip()]
+
+
+# Resolve the project root (flotchat-backend) and .env path even when cwd is different
+_DEFAULT_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
@@ -56,7 +62,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
 
     class Config:
-        env_file = ".env"
+        # Always pick up the intended backend .env regardless of cwd; allow override via ENV_FILE
+        env_file = os.getenv("ENV_FILE", str(_DEFAULT_ENV_PATH))
         extra = "ignore"
 
 

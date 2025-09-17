@@ -1,6 +1,6 @@
 import asyncio
 import gzip
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence
 
 import httpx
@@ -31,6 +31,42 @@ def _matches_region(line: str, region: Optional[str], ocean_col: Optional[str] =
         return "atlantic" in oc or "/atlantic_ocean/" in text or "atlantic" in text
     # Fallback contains
     return r in text or r in oc
+
+
+def _parse_index_date(val: str) -> Optional[datetime]:
+    """Parse ARGO index date with multiple tolerant formats; return UTC-naive datetime.
+
+    Tries: ISO8601 with/without Z/offset, YYYY-MM-DD, YYYYMMDDHHMMSS, YYYYMMDD.
+    """
+    v = (val or "").strip()
+    if not v:
+        return None
+    # Common: YYYY-MM-DD or ISO strings
+    # Normalize 'Z' to +00:00 for fromisoformat
+    try:
+        if "T" in v:
+            isostr = v.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(isostr)
+        else:
+            dt = datetime.fromisoformat(v)
+        # Convert aware -> naive UTC
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    except Exception:
+        pass
+    # Strict formats fallback
+    fmts = [
+        "%Y-%m-%d",
+        "%Y%m%d%H%M%S",
+        "%Y%m%d",
+    ]
+    for f in fmts:
+        try:
+            return datetime.strptime(v, f)
+        except Exception:
+            continue
+    return None
 
 
 async def _ensure_float(session: AsyncSession, platform_number: str):
@@ -71,8 +107,10 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
         candidates = [base_url + ".gz", base_url]
     # Mirrors
     candidates += [
+        # Add more mirrors first to improve reliability
         "https://usgodae.org/ftp/outgoing/argo/ar_index_global_prof.txt.gz",
         "https://usgodae.org/ftp/outgoing/argo/ar_index_global_prof.txt",
+        "https://data-argo.ifremer.fr/ar_index_global_prof.txt",
     ]
 
     raw = await _fetch_with_retries(candidates)
@@ -85,7 +123,7 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
     text = raw.decode("utf-8", errors="ignore")
     lines = text.splitlines()
 
-    # Give a small cushion to increase matches if data timestamps are UTC-wall clock aligned
+    # Give a cushion to increase matches if dates have different TZ/rounding
     cutoff = datetime.utcnow() - timedelta(days=max(1, days_back))
 
     # Index format: skip comment lines starting with '#'
@@ -102,10 +140,9 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
         lat_str = parts[2].strip()
         lon_str = parts[3].strip()
         ocean_col = parts[4].strip() if len(parts) > 4 else None
-        # parse date, tolerate various formats
-        try:
-            dt = datetime.strptime(date_str.split('T')[0], "%Y-%m-%d")
-        except Exception:
+        # Parse date with multiple tolerant formats
+        dt = _parse_index_date(date_str)
+        if not dt:
             continue
         if dt < cutoff:
             continue
@@ -116,8 +153,18 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
             lon = float(lon_str)
         except Exception:
             continue
-        # Extract WMO/platform from path: usually the immediate parent folder
-        platform_number = file_path.strip('/').split('/')[-2] if '/' in file_path else file_path
+        # Extract WMO/platform: typical path .../profiles/WMO/FILE
+        parts_path = [p for p in file_path.strip('/').split('/') if p]
+        platform_number = None
+        if len(parts_path) >= 2:
+            candidate = parts_path[-2]
+            # Avoid generic folder names
+            if candidate.lower() in {"profiles", "dac"} and len(parts_path) >= 3:
+                platform_number = parts_path[-3]
+            else:
+                platform_number = candidate
+        else:
+            platform_number = parts_path[-1] if parts_path else "unknown"
         # Prefer ocean value from index if present
         ocean_val = ocean_col or (region or None)
         filtered.append((platform_number, dt, lat, lon, ocean_val))
