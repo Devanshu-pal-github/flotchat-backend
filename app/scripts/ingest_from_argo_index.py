@@ -13,20 +13,24 @@ from ..models.argo_data import ArgoProfile, ArgoFloat
 from ..core.database import Base, engine
 
 
-def _matches_region(line: str, region: Optional[str]) -> bool:
+def _matches_region(line: str, region: Optional[str], ocean_col: Optional[str] = None) -> bool:
     if not region:
         return True
     r = region.lower()
-    if r.startswith("i"):
-        return any(x in line.lower() for x in ["indian"]) or \
-               "/indian_ocean/" in line.lower()
-    if r.startswith("p"):
-        return any(x in line.lower() for x in ["pacific"]) or \
-               "/pacific_ocean/" in line.lower()
-    if r.startswith("a"):
-        return any(x in line.lower() for x in ["atlantic"]) or \
-               "/atlantic_ocean/" in line.lower()
-    return r in line.lower()
+    text = line.lower()
+    oc_raw = (ocean_col or "").strip()
+    # Map single-letter basin code to full label when needed
+    basin_map = {"A": "atlantic", "P": "pacific", "I": "indian"}
+    oc = basin_map.get(oc_raw.upper(), oc_raw.lower())
+    # Use the explicit ocean column when available
+    if r.startswith("i") or "indian" in r:
+        return "indian" in oc or "/indian_ocean/" in text or "indian" in text
+    if r.startswith("p") or "pacific" in r:
+        return "pacific" in oc or "/pacific_ocean/" in text or "pacific" in text
+    if r.startswith("a") or "atlantic" in r:
+        return "atlantic" in oc or "/atlantic_ocean/" in text or "atlantic" in text
+    # Fallback contains
+    return r in text or r in oc
 
 
 async def _ensure_float(session: AsyncSession, platform_number: str):
@@ -81,7 +85,8 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
     text = raw.decode("utf-8", errors="ignore")
     lines = text.splitlines()
 
-    cutoff = datetime.utcnow() - timedelta(days=days_back)
+    # Give a small cushion to increase matches if data timestamps are UTC-wall clock aligned
+    cutoff = datetime.utcnow() - timedelta(days=max(1, days_back))
 
     # Index format: skip comment lines starting with '#'
     filtered = []
@@ -104,7 +109,7 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
             continue
         if dt < cutoff:
             continue
-        if not _matches_region(line, region):
+        if not _matches_region(line, region, ocean_col):
             continue
         try:
             lat = float(lat_str)

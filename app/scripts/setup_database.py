@@ -1,6 +1,8 @@
 import asyncio
 from sqlalchemy import text
 from ..core.database import engine, Base
+# Ensure models are imported so metadata contains tables
+from ..models import argo_data  # noqa: F401
 
 
 async def main():

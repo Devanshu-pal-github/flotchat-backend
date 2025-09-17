@@ -24,6 +24,17 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:///./floatchat.db",
         description="SQLAlchemy URL; default local SQLite for P0"
     )
+    # SSL controls for Postgres (used when DATABASE_URL points to Postgres)
+    # Values: disable | require | verify-ca | verify-full
+    # - disable: no TLS (NOT recommended)
+    # - require: TLS but do not verify certificate/hostname (dev-only)
+    # - verify-ca: verify certificate chain using provided CA bundle, skip hostname check
+    # - verify-full: verify certificate chain and hostname (RECOMMENDED)
+    DB_SSLMODE: str | None = Field(default="verify-full")
+    # Path to a PEM bundle containing trusted root CAs (use if corporate proxy inserts certs)
+    DB_SSLROOTCERT: str | None = Field(default=None)
+    # Use certifi CA bundle if no DB_SSLROOTCERT is provided
+    DB_USE_CERTIFI: bool = Field(default=True)
     API_PREFIX: str = "/api"
 
     # CORS: comma-separated origins, e.g. http://localhost:5173,https://yourapp.vercel.app
