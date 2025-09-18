@@ -33,6 +33,7 @@ class ArgoProfile(Base):
     vertical_sampling_scheme: Mapped[str | None] = mapped_column(String(20), nullable=True)
     data_center: Mapped[str | None] = mapped_column(String(10), nullable=True)
     ocean_region: Mapped[str | None] = mapped_column(String(50), index=True, nullable=True)
+    file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
 
 

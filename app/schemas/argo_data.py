@@ -11,6 +11,7 @@ class ArgoProfileResponse(BaseModel):
     latitude: float
     longitude: float
     ocean_region: Optional[str] = None
+    file_path: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -24,6 +25,15 @@ class ArgoFloatResponse(BaseModel):
     deployment_latitude: Optional[float] = None
     deployment_longitude: Optional[float] = None
     data_center: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MeasurementsResponse(BaseModel):
+    depth: list[float]
+    temperature: list[Optional[float]]
+    salinity: list[Optional[float]]
 
     class Config:
         from_attributes = True

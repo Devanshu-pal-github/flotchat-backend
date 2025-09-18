@@ -167,7 +167,8 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
             platform_number = parts_path[-1] if parts_path else "unknown"
         # Prefer ocean value from index if present
         ocean_val = ocean_col or (region or None)
-        filtered.append((platform_number, dt, lat, lon, ocean_val))
+        # Keep reference to file path for potential on-demand fetch later
+        filtered.append((platform_number, dt, lat, lon, ocean_val, file_path))
         if len(filtered) >= limit:
             break
 
@@ -181,7 +182,7 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
 
     async with async_session_factory() as session:
         async with session.begin():
-            for platform_number, dt, lat, lon, ocean_val in filtered:
+            for platform_number, dt, lat, lon, ocean_val, file_path in filtered:
                 await _ensure_float(session, platform_number)
                 await session.execute(
                     insert(ArgoProfile).values(
@@ -191,6 +192,7 @@ async def ingest_from_index(days_back: int, region: Optional[str], limit: int):
                         latitude=lat,
                         longitude=lon,
                         ocean_region=ocean_val,
+                        file_path=file_path,
                         created_at=datetime.utcnow(),
                     )
                 )

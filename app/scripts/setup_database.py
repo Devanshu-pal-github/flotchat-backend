@@ -9,6 +9,16 @@ async def main():
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Ensure new nullable columns exist when not using migrations
+        try:
+            # Postgres supports IF NOT EXISTS
+            await conn.execute(text("ALTER TABLE argo_profiles ADD COLUMN IF NOT EXISTS file_path TEXT"))
+        except Exception:
+            # SQLite path (no IF NOT EXISTS) — try plain add and ignore if already exists
+            try:
+                await conn.execute(text("ALTER TABLE argo_profiles ADD COLUMN file_path TEXT"))
+            except Exception:
+                pass
         # Align sequences with current max(id) after manual inserts or seeds
         try:
             await conn.execute(text("SELECT setval(pg_get_serial_sequence('argo_profiles','id'), COALESCE((SELECT MAX(id) FROM argo_profiles), 0) + 1, false)"))
