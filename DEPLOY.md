@@ -14,13 +14,17 @@ Important envs
 - GEMINI_MODEL=gemini-1.5-flash
 
 Option A: Render.com (no Docker)
-1) Create new Web Service from your GitHub repo, root set to flotchat-backend
+1) Create new Web Service from your GitHub repo, root set to flotchat-backend (very important so Render sees runtime.txt)
 2) Runtime: Python 3.11
 3) Build Command: pip install -r requirements.txt
 4) Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 5) Add Env Vars: copy from .env (replace CORS_ORIGINS with your Vercel URL)
 6) Deploy. Note your public base URL, e.g. https://floatchat-api.onrender.com
 7) In frontend .env: VITE_API_URL=https://floatchat-api.onrender.com
+
+Runtime pinning on Render
+- Ensure flotchat-backend/ contains runtime.txt with "3.11.9" or ".python-version" with "3.11.9".
+- If Render still uses 3.13, check the "Root Directory" of the service. It must be flotchat-backend so runtime.txt is detected.
 
 Option B: Railway.app (no Docker)
 1) Create New Service -> Deploy from Repo -> Path = flotchat-backend
