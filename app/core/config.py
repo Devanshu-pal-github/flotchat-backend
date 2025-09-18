@@ -58,8 +58,9 @@ class Settings(BaseSettings):
     INGEST_REGION: str | None = Field(default=None, description="Region filter: I|P|A or full name like 'Indian'")
     INGEST_LIMIT: int = Field(default=500)
 
-    # AI key (used later in P1)
+    # Gemini configuration
     GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = Field(default="gemini-1.5-flash")
 
     class Config:
         # Always pick up the intended backend .env regardless of cwd; allow override via ENV_FILE
