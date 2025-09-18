@@ -6,6 +6,7 @@ import time
 from .core.config import settings, parse_origins
 from .api.data import router as data_router
 import os
+import logging
 
 # Gemini setup (lazy import to keep cold-start light)
 try:
@@ -34,9 +35,23 @@ class ChatResponse(BaseModel):
     sql_query: Optional[str] = None
     execution_time: Optional[float] = None
 
+
+logger = logging.getLogger("floatchat.chat")
+logger.setLevel(logging.INFO)
+
 @app.get(f"{settings.API_PREFIX}/health")
 async def health():
     return {"status": "ok"}
+
+@app.get(f"{settings.API_PREFIX}/chat/info")
+async def chat_info():
+    """Diagnostics for Gemini setup (does not expose secrets)."""
+    return {
+        "has_genai_lib": _HAS_GENAI,
+        "has_key": bool(settings.GEMINI_API_KEY),
+        "model": settings.GEMINI_MODEL or "",
+        "env": settings.ENV,
+    }
 
 @app.post(f"{settings.API_PREFIX}/chat/query", response_model=ChatResponse)
 async def chat_query(q: ChatQuery):
@@ -55,8 +70,11 @@ async def chat_query(q: ChatQuery):
             msg = resp or "(empty response)"
             return ChatResponse(message=msg, sql_query=None, execution_time=time.time() - start)
         except Exception as e:
-            # Fallback to mock on any error
-            pass
+            # Log the error and fall back to mock
+            logger.exception("Gemini call failed: %s", e)
+            if settings.ENV != "prod":
+                mock = f"(Gemini error: {type(e).__name__}) Using mock."
+                return ChatResponse(message=mock, sql_query=None, execution_time=time.time() - start)
     # Mock if no key or library
     sql = "SELECT platform_number, cycle_number FROM argo_profiles ORDER BY profile_date DESC LIMIT 10;"
     reply = f"(Mock) You asked: '{q.message}'."
