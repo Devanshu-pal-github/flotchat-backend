@@ -105,8 +105,18 @@ if ASYNC_DATABASE_URL.startswith("postgresql+asyncpg://"):
     effective_mode = (settings.DB_SSLMODE or url_ssl_mode or "verify-full")
     ctx = _build_ssl_context(effective_mode, settings.DB_SSLROOTCERT, settings.DB_USE_CERTIFI)
     connect_args["ssl"] = ctx
+    # PgBouncer (transaction/statement pooling) is incompatible with asyncpg's prepared
+    # statement cache and causes DuplicatePreparedStatementError. Disable the cache.
+    # Ref: asyncpg docs, and common PgBouncer guidance.
+    connect_args["statement_cache_size"] = 0
 
-engine = create_async_engine(ASYNC_DATABASE_URL, future=True, echo=False, connect_args=connect_args)
+engine = create_async_engine(
+    ASYNC_DATABASE_URL,
+    future=True,
+    echo=False,
+    connect_args=connect_args,
+    pool_pre_ping=True,  # proactively recycle dead/stale connections
+)
 async_session_factory = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
